@@ -123,7 +123,7 @@ class Document(msgspec.Struct, frozen = True):
     when_scraped: str
     text: str
 
-class Section(msgspec.Struct, froze = True):
+class Section(msgspec.Struct, frozen = True):
     "A section from a primary or secondary source."
 
     id: str

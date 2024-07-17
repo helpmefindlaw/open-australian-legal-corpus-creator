@@ -209,9 +209,12 @@ class Scraper(ABC):
     
         while True:
             try:
+                proxy_url = "socks5://localhost:9050"  # Tor's default SOCKS proxy port
+                connector = aiohttp.SocksConnector.from_url(proxy_url)
+
                 # If `self.session` exists and has not been closed, use it. Otherwise, create a new session.
                 # NOTE We do not use `self.session` in a with statement but instead use a nullcontext (which acts as a flag for us to overwrite our session with `self.session`) in order to avoid closing `self.session` when it is not ours to close. The responsibility of closing `self.session` is on whoever passed it to the scraper.
-                async with self.semaphore, (nullcontext() if self.session and not self.session.closed else aiohttp.ClientSession()) as session:
+                async with self.semaphore, (nullcontext() if self.session and not self.session.closed else aiohttp.ClientSession(connector=connector)) as session:
                     session = session or self.session # NOTE `session` will be `None` if our context manager is a nullcontext.
                     async with session.request(**req.args) as response:
                         # Raise a custom `aiohttp.client_exceptions.ClientResponseError` exception if the response status code is in `self.retry_statuses`.

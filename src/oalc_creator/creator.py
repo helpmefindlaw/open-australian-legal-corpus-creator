@@ -196,9 +196,13 @@ class Creator:
         """Update the Corpus."""
         
         console.print(Markdown('# Open Australian Legal Corpus Creator'), style='light_cyan1')
+
+        proxy_url = "socks5://localhost:9050"  # Tor's default SOCKS proxy port
+        connector = aiohttp.SocksConnector.from_url(proxy_url)
+
         
         # Create a new `aiohttp` session using a with statement to ensure that the session is always closed.
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=connector) as session:
             # Set the scrapers' sessions to the new session. This improves performance vis-a-vis creating new sessions for each request.
             for scraper in self.scrapers.values(): scraper.session = session
 

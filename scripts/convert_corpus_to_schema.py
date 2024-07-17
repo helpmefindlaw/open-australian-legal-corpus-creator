@@ -1,6 +1,9 @@
 import json
 import dateparser
 import pandas as pd
+from uuid import uuid4
+from pathlib import Path
+import shutil
 from schema import Instrument, Document, DocumentText, DocumentMetadata
 
 def type_to_instrument(x):
@@ -42,8 +45,8 @@ def federal_court_mappings(x):
     raise ValueError
 
 
-courts = pd.read_csv("./courts.csv").set_index("id")
-jurisdiction = pd.read_csv("./jurisdiction.csv").set_index("id")
+courts = pd.read_csv("./data/courts.csv").set_index("id")
+jurisdiction = pd.read_csv("./data/jurisdiction.csv").set_index("id")
 
 def get_court_given_id(id):
     if id:
@@ -52,76 +55,96 @@ def get_court_given_id(id):
 
 def get_jurisdiction_given_id(id):
     return jurisdiction.loc[id, ["name", "country", "province"]].to_dict()
-    
+
+def process(row):
+    court_id = None
+    if row["type"] == 'decision':
+        if row["source"] == "federal_court_of_australia":
+            court_id = federal_court_mappings(row["version_id"])
+        if row["source"] == "high_court_of_australia":
+            court_id = "C0100008"
+    date = dateparser.parse(row["date"]) if row["date"] else None
+    data = dict(
+        id=row['version_id'],
+        jurisdiction_id=jurisdiction_normalise(row["jurisdiction"]),
+        court_id=court_id,
+        instrument=type_to_instrument(row["type"]),
+        instrument_subtype=None,
+        title=row["citation"],
+        headnotes=None,
+        history=None,
+        summary=None,
+        disposition=None,
+        number=None,
+        source_url=row["url"],
+        pdf_url=row["url"] if row["mime"] == "application/pdf" else None,
+        html_url=row["url"] if row["mime"] == "text/html" else None,
+        xml_url=None,
+        rtf_url=row["url"] if row["mime"] == "application/rtf" else None,
+        docx_url=row["url"] if row["mime"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" else None,
+        pdf_path=None,
+        citation=row["citation"],
+        year=date.year if date else None,
+        effective_date=date,
+        date_scraped=row["when_scraped"]
+    )
+    doc = Document(**data)
+    jurisdiction = get_jurisdiction_given_id(doc.jurisdiction_id)
+    metadata = DocumentMetadata(
+        document_id=doc.id,
+        document_title=doc.title,
+        document_citation=doc.citation,
+        section_id=None,
+        section_title=None,
+        section_citation=None,
+        opinion_id=None,
+        opinion_author=None,
+        opinion_type=None,
+        court=get_court_given_id(doc.court_id),
+        instrument=doc.instrument,
+        instrument_subtype=doc.instrument_subtype,
+        jurisdiction_id=doc.jurisdiction_id,
+        jurisdiction=jurisdiction["name"],
+        country=jurisdiction["country"],
+        province=None if pd.isna(jurisdiction["province"]) else jurisdiction["province"],
+        other=None,
+    )
+    text = DocumentText(
+        id=doc.id,
+        text=row["text"],
+        metadata=metadata
+    )
+    return doc, text
+
+def write_batch(dir: Path, batch):
+    with open(dir.joinpath(uuid4().hex + ".jsonl"), 'w') as f:
+        for item in batch:
+            f.write(item.json() + "\n")
 
 def main():
-    with open('../document_texts.jsonl', 'w') as texts_file:
-        with open('../document_records.jsonl', 'w') as document_file:
-            with open('../corpus.jsonl', 'r') as f:
-                for line in f.readlines():
-                    row = json.loads(line)
-                    if row['type'] in ['bill']:
-                        continue
+    with open('./data/document_records.jsonl', 'w') as document_file:
+        text_batch = []
+        _dir = Path('./data/documents')
+        if _dir.exists():
+           shutil.rmtree(_dir)
+        _dir.mkdir()
 
-                    court_id = None
-                    if row["type"] == 'decision':
-                        if row["source"] == "federal_court_of_australia":
-                            court_id = federal_court_mappings(row["version_id"])
-                        if row["source"] == "high_court_of_australia":
-                            court_id = "C0100008"
-                    date = dateparser.parse(row["date"]) if row["date"] else None
-                    data = dict(
-                        id=row['version_id'],
-                        jurisdiction_id=jurisdiction_normalise(row["jurisdiction"]),
-                        court_id=court_id,
-                        instrument=type_to_instrument(row["type"]),
-                        instrument_subtype=None,
-                        title=row["citation"],
-                        headnotes=None,
-                        history=None,
-                        summary=None,
-                        disposition=None,
-                        number=None,
-                        source_url=row["url"],
-                        pdf_url=row["url"] if row["mime"] == "application/pdf" else None,
-                        html_url=row["url"] if row["mime"] == "text/html" else None,
-                        xml_url=None,
-                        rtf_url=row["url"] if row["mime"] == "application/rtf" else None,
-                        docx_url=row["url"] if row["mime"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" else None,
-                        pdf_path=None,
-                        citation=row["citation"],
-                        year=date.year if date else None,
-                        effective_date=date,
-                        date_scraped=row["when_scraped"]
-                    )
-                    doc = Document(**data)
-                    jurisdiction = get_jurisdiction_given_id(doc.jurisdiction_id)
-                    metadata = DocumentMetadata(
-                        document_id=doc.id,
-                        document_title=doc.title,
-                        document_citation=doc.citation,
-                        section_id=None,
-                        section_title=None,
-                        section_citation=None,
-                        opinion_id=None,
-                        opinion_author=None,
-                        opinion_type=None,
-                        court=get_court_given_id(doc.court_id),
-                        instrument=doc.instrument,
-                        instrument_subtype=doc.instrument_subtype,
-                        jurisdiction_id=doc.jurisdiction_id,
-                        jurisdiction=jurisdiction["name"],
-                        country=jurisdiction["country"],
-                        province=None if pd.isna(jurisdiction["province"]) else jurisdiction["province"],
-                        other=None,
-                    )
-                    text = DocumentText(
-                        id=doc.id,
-                        text=row["text"],
-                        metadata=metadata
-                    )
-                    document_file.write(doc.json() + "\n")
-                    texts_file.write(text.json() + "\n")
+        with open('./data/corpus.jsonl', 'r') as f:
+            for line in f.readlines():
+                row = json.loads(line)
+                if row['type'] in ['bill']:
+                    continue
+                doc, text = process(row)
+
+                document_file.write(doc.json() + "\n")
+                text_batch.append(text)
+                if len(text_batch) == 10000:
+                    write_batch(_dir, text_batch)
+                    text_batch = []
+    write_batch(_dir, text_batch)
+    text_batch = []
+            
+
 
 
 if __name__ == "__main__":

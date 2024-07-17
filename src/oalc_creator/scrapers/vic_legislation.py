@@ -19,9 +19,10 @@ from ..helpers import log, warning
 from ..scraper import Scraper
 from ..custom_inscriptis import CustomInscriptis, CustomParserConfig
 
+BASE_URL = "https://www.legislation.vic.gov.au"
 
-class NswLegislation(Scraper):
-    """A scraper for the NSW Legislation database."""
+class VicLegislation(Scraper):
+    """A scraper for the VIC Legislation database."""
     
     def __init__(self,
                  indices_refresh_interval: bool | timedelta = None,
@@ -32,7 +33,7 @@ class NswLegislation(Scraper):
                  ocr_semaphore: asyncio.Semaphore = None,
                  ) -> None:
         super().__init__(
-            source='nsw_legislation',
+            source='vic_legislation',
             indices_refresh_interval=indices_refresh_interval,
             index_refresh_interval=index_refresh_interval,
             semaphore=semaphore,
@@ -41,7 +42,7 @@ class NswLegislation(Scraper):
             ocr_semaphore=ocr_semaphore,
         )
 
-        self._jurisdiction = 'new_south_wales'
+        self._jurisdiction = 'victoria'
         
         # Create a custom Inscriptis CSS profile.
         inscriptis_profile = CSS_PROFILES['strict'].copy()
@@ -55,17 +56,19 @@ class NswLegislation(Scraper):
     @log
     async def get_index_reqs(self) -> set[Request]:
         # Get the current date in NSW.
-        pit = datetime.now(tz=pytz.timezone("Australia/NSW")).strftime(r"%d/%m/%Y")
+        pit = datetime.now(tz=pytz.timezone("Australia/VIC")).strftime(r"%d/%m/%Y")
         
         return {
-            Request(f'https://legislation.nsw.gov.au/tables/{table}if?pit={pit}&sort=chron&renderas=html&generate=')
-            for table in ('pubacts', 'pvtacts', 'si', 'epi')
+            Request(f'{BASE_URL}/in-force/{instrument}?page={0}')
+            for instrument in ('acts', 'statutory-rules')
         }
 
     @log
     async def get_index(self, req: Request) -> set[Entry]:        
         # Determine the document type of the index.
-        type = 'primary_legislation' if 'actsif?' in req.path else 'secondary_legislation'
+        type = 'primary_legislation' if 'acts' in req.path else 'secondary_legislation'
+
+
         
         # Retrieve the index.
         resp = (await self.get(req)).text
@@ -113,7 +116,7 @@ class NswLegislation(Scraper):
                 
                 # If a PDF version of the document is returned, then we must use the current point in time.
                 case 'application/pdf':
-                    pit = datetime.now(tz=pytz.timezone("Australia/NSW")).strftime(r"%Y-%m-%d")
+                    pit = datetime.now(tz=pytz.timezone("Australia/VIC")).strftime(r"%Y-%m-%d")
                 
                 case _:
                     raise ValueError(f"Unable to retrieve entry from https://legislation.nsw.gov.au/view/html/inforce/current/{doc_id}. Invalid content type: {resp.type}.")
@@ -188,54 +191,3 @@ class NswLegislation(Scraper):
             url=entry.request.path,
             text=text
         )
-    
-    @log
-    async def _get_sections(self, entry: Entry) -> List[Section] | None:
-        resp: Response = await self.get(entry.request)
-        
-        # If error 404 is encountered, return `None`.
-        # NOTE It is possible for some documents to simply be missing which is why we return `None` rather than raising an exception.
-        if resp.status == 404:
-            warning(f'Unable to retrieve document from {entry.request.path}. Error 404 (Not Found) encountered, indicating that the document is missing from the NSW Legislation database. Returning `None`.')
-            
-            return
-        
-
-        sections: List[Section] = []
-        match resp.type:
-            case 'text/html':
-                # If the response contains the substring 'No fragments found.', then return `None` as there is a bug in the NSW Legislation database preventing the retrieval of certain documents (see, eg, https://legislation.nsw.gov.au/view/whole/html/inforce/2021-03-25/act-1944-031).
-                if 'No fragments found.' in resp.text:
-                    warning(f"Unable to retrieve document from {entry.request.path}. 'No fragments found.' encountered in the response, indicating that the document is missing from the NSW Legislation database. Returning `None`.")
-                    return
-                
-                # Create an etree from the response.
-                etree = lxml.html.fromstring(resp.text)
-                
-                # Select the element containing the text of the document.
-                text_elm = etree.xpath('//div[@id="frag-col"]')[0]
-                
-                # Remove the toolbar.
-                text_elm.xpath('//div[@id="fragToolbar"]')[0].drop_tree()
-                
-                # Remove the search results (they are supposed to be hidden by Javascript).
-                text_elm.xpath('//div[@class="nav-result display-none"]')[0].drop_tree()
-
-                # Remove footnotes (they are supposed to be hidden by Javascript).
-                for elm in text_elm.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' view-history-note ')]"): elm.drop_tree()
-
-                # Extract the text of the document.
-                for sec_elm in text_elm.xpath('//*/div'):
-                    print(sec_elm)
-
-                text = CustomInscriptis(text_elm, self._inscriptis_config).get_text()
-            
-            case 'application/pdf':
-                # Unable to extract sections from PDF atm
-                pass
-            
-            case _:
-                raise ValueError(f'Unable to retrieve document from {entry.request.path}. Invalid content type: {resp.type}.')
-        
-        # Return the document.
-        return sections

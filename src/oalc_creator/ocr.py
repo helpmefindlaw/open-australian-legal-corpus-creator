@@ -7,7 +7,7 @@ from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor
 
 import pypdfium2
-import tesserocr
+import pytesseract
 
 from .helpers import batch_generator
 
@@ -43,7 +43,7 @@ async def pdf2txt(
                 
                 # OCR the pages.
                 loop = asyncio.get_event_loop()
-                text.extend(await asyncio.gather(*[loop.run_in_executor(thread_pool_executor, tesserocr.image_to_text, img) for img in imgs]))
+                text.extend(await asyncio.gather(*[loop.run_in_executor(thread_pool_executor, pytesseract.image_to_string, img) for img in imgs]))
                 
                 del imgs
 

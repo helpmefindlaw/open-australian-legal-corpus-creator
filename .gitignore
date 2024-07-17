@@ -9,6 +9,10 @@
 !src/
 !src/**/*
 !.isort.cfg
+!tests/
+!tests/**/*
+!scripts/
+!scripts/**/*
 
 # Finally, exclude anything in the above inclusions that we don't want.
 #   Exclude common Python files and folders.

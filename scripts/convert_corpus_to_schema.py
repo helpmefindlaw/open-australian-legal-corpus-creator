@@ -55,7 +55,7 @@ def get_jurisdiction_given_id(id):
     
 
 def main():
-    with open('../document_texts.json', 'w') as texts_file:
+    with open('../document_texts.jsonl', 'w') as texts_file:
         with open('../document_records.jsonl', 'w') as document_file:
             with open('../corpus.jsonl', 'r') as f:
                 for line in f.readlines():

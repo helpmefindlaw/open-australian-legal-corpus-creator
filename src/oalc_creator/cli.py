@@ -29,7 +29,7 @@ install(suppress=[rich, click, asyncio])
 )
 @click.option(
     '-o', '--output',
-    default=os.path.join(os.getcwd(), 'corpus.jsonl'),
+    default=os.path.join(os.getcwd(), 'data/corpus.jsonl'),
     show_default=True,
     help='The path to the Corpus.',
 )

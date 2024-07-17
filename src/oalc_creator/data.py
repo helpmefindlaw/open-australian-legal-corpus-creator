@@ -122,6 +122,20 @@ class Document(msgspec.Struct, frozen = True):
     url: str
     when_scraped: str
     text: str
+
+class Section(msgspec.Struct, froze = True):
+    "A section from a primary or secondary source."
+
+    id: str
+    document_id: str
+    type: str
+    number: str
+    title: str
+    text: str
+    citation: str
+    url: str
+    when_scraped: str
+
     
 def format_citation(title: str, type: str, jurisdiction: str) -> str:
     """Format a citation."""
@@ -199,6 +213,43 @@ def make_doc(
         source = source,
         mime = mime,
         date = date,
+        citation = citation,
+        url = url,
+        when_scraped = datetime.datetime.now().astimezone().isoformat(),
+        text = text,
+    )
+
+
+def make_section(
+    version_id: str,
+    jurisdiction: str,
+    type: str,
+    number: str,
+    title: str,
+    citation: str,
+    url: str,
+    text: str,
+) -> Section:
+    """Create a section."""
+    
+    # Format the citation.
+    citation = format_citation(citation, type, jurisdiction)
+    
+    # Clean the text.
+    text = clean_text(text)
+    
+    # Return `None` if, when stripped of non-alphabetic characters, the text is less than 9 characters long.
+    if len(re.sub(r'\W', '', text)) < 9:
+        warning(f'The text of {url} was, when stripped of non-alphabetic characters, less than 9 characters long. The text extracted was "{text}". Returning `None`.')
+        return
+
+    return Section(
+        id=f"{version_id}/{citation}",
+        document_id = version_id,
+        type = type,
+        jurisdiction = jurisdiction,
+        title=title,
+        number=number,
         citation = citation,
         url = url,
         when_scraped = datetime.datetime.now().astimezone().isoformat(),

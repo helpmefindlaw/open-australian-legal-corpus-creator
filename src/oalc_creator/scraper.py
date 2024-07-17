@@ -6,11 +6,12 @@ from abc import ABC, abstractmethod
 from datetime import timedelta
 from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor
+from typing import List
 
 import aiohttp
 import aiohttp.client_exceptions
 
-from .data import Entry, Request, Document, Response
+from .data import Entry, Request, Document, Section, Response
 from .helpers import log
 
 
@@ -108,7 +109,12 @@ class Scraper(ABC):
     async def _get_doc(self, entry: Entry) -> Document | None:
         """Retrieve a document."""
         pass
-    
+
+    async def _get_sections(self, entry: Entry) -> List[Section] | None:
+        """Extracts sections from an entry"""
+        raise NotImplementedError
+
+
     @log
     async def get_doc(self, entry: Entry) -> Document | None:
         """Retrieve a document, retrying if necessary for up to `self.stop_after_waiting` seconds."""
@@ -119,6 +125,42 @@ class Scraper(ABC):
         while True:
             try:
                 return await self._get_doc(entry)
+            
+            except ParseError as e:
+                if elapsed > self.stop_after_waiting:
+                    raise e
+                
+                attempt += 1
+                
+                # Implement exponential backoff with jitter.
+                wait = self.wait_base ** attempt / 2 # We divide by 2 so that `wait + jitter` is always <= `self.wait_base ** attempt`.
+                
+                # Set our jitter to a random number between 0 and `wait`.
+                jitter = random.uniform(0, wait)
+                
+                wait += jitter
+                
+                # If `wait` is greater than `self.max_wait`, set `wait` to `self.max_wait`.
+                wait = min(wait, self.max_wait)
+
+                # Add a little extra jitter to the wait time to handle cases where `wait` has been capped at `self.max_wait`.
+                wait += random.uniform(0, self.max_extra_jitter)
+                
+                # Wait for `wait` seconds.
+                await asyncio.sleep(wait)
+                
+                elapsed += wait
+
+    @log
+    async def get_sections(self, entry: Entry) -> List[Section] | None:
+        """Retrieve a section, retrying if necessary for up to `self.stop_after_waiting` seconds."""
+        
+        attempt = 0
+        elapsed = 0
+        
+        while True:
+            try:
+                return await self._get_sections(entry)
             
             except ParseError as e:
                 if elapsed > self.stop_after_waiting:

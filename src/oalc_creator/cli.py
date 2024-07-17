@@ -35,7 +35,7 @@ install(suppress=[rich, click, asyncio])
 )
 @click.option(
     '-d', '--data_dir',
-    default=os.path.join(os.getcwd(), user_data_dir('Open Australian Legal Corpus', 'Umar Butler')),
+    default=os.path.join(os.getcwd(), 'data'),
     show_default=True,
     help='The directory in which Corpus data should be stored.',
 )

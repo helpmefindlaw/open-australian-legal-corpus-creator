@@ -7,13 +7,14 @@ from concurrent.futures import ThreadPoolExecutor
 import pytz
 import aiohttp
 import lxml.html
+from typing import List
 
 from inscriptis.css_profiles import CSS_PROFILES
 from inscriptis.html_properties import Display
 from inscriptis.model.html_element import HtmlElement
 
 from ..ocr import pdf2txt
-from ..data import Entry, Request, Document, make_doc, Response
+from ..data import Entry, Request, Document, make_doc, Section, make_section, Response
 from ..helpers import log, warning
 from ..scraper import Scraper
 from ..custom_inscriptis import CustomInscriptis, CustomParserConfig
@@ -183,6 +184,61 @@ class NswLegislation(Scraper):
             source=entry.source,
             mime=resp.type,
             date=entry.date,
+            citation=entry.title,
+            url=entry.request.path,
+            text=text
+        )
+    
+    @log
+    async def _get_sections(self, entry: Entry) -> List[Section] | None:
+        resp: Response = await self.get(entry.request)
+        
+        # If error 404 is encountered, return `None`.
+        # NOTE It is possible for some documents to simply be missing which is why we return `None` rather than raising an exception.
+        if resp.status == 404:
+            warning(f'Unable to retrieve document from {entry.request.path}. Error 404 (Not Found) encountered, indicating that the document is missing from the NSW Legislation database. Returning `None`.')
+            
+            return
+        
+        match resp.type:
+            case 'text/html':
+                # If the response contains the substring 'No fragments found.', then return `None` as there is a bug in the NSW Legislation database preventing the retrieval of certain documents (see, eg, https://legislation.nsw.gov.au/view/whole/html/inforce/2021-03-25/act-1944-031).
+                if 'No fragments found.' in resp.text:
+                    warning(f"Unable to retrieve document from {entry.request.path}. 'No fragments found.' encountered in the response, indicating that the document is missing from the NSW Legislation database. Returning `None`.")
+                    return
+                
+                # Create an etree from the response.
+                etree = lxml.html.fromstring(resp.text)
+                
+                # Select the element containing the text of the document.
+                text_elm = etree.xpath('//div[@id="frag-col"]')[0]
+                
+                # Remove the toolbar.
+                text_elm.xpath('//div[@id="fragToolbar"]')[0].drop_tree()
+                
+                # Remove the search results (they are supposed to be hidden by Javascript).
+                text_elm.xpath('//div[@class="nav-result display-none"]')[0].drop_tree()
+
+                # Remove footnotes (they are supposed to be hidden by Javascript).
+                for elm in text_elm.xpath("//*[contains(concat(' ', normalize-space(@class), ' '), ' view-history-note ')]"): elm.drop_tree()
+
+                # Extract the text of the document.
+                text = CustomInscriptis(text_elm, self._inscriptis_config).get_text()
+            
+            case 'application/pdf':
+                # Unable to extract sections from PDF atm
+                return
+            
+            case _:
+                raise ValueError(f'Unable to retrieve document from {entry.request.path}. Invalid content type: {resp.type}.')
+        
+        # Return the document.
+        return make_section(
+            version_id=entry.version_id,
+            jurisdiction=entry.jurisdiction,
+            type=entry.type,
+            number=number,
+            title=title,
             citation=entry.title,
             url=entry.request.path,
             text=text

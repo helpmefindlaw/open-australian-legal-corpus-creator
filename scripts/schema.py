@@ -97,10 +97,13 @@ class DocumentMetadata(BaseModel):
     document_id: str
     document_title: Optional[str] = None  # will change when fixed legacy
     document_citation: Optional[str] = None
+    document_source_url: Optional[str] = None
+    document_pdf_url: Optional[str] = None
 
     section_id: Optional[str] = None
     section_title: Optional[str] = None
     section_citation: Optional[str] = None
+    section_source_url: Optional[str] = None
 
     opinion_id: Optional[str] = None
     opinion_author: Optional[str] = None

@@ -94,6 +94,8 @@ def process(row):
         document_id=doc.id,
         document_title=doc.title,
         document_citation=doc.citation,
+        document_source_url=str(doc.source_url),
+        document_pdf_url=str(doc.pdf_url),
         section_id=None,
         section_title=None,
         section_citation=None,

@@ -1,7 +1,7 @@
 import re
 import html
 import datetime
-
+from bs4 import BeautifulSoup
 from io import BytesIO
 from typing import Callable
 from functools import cached_property
@@ -22,6 +22,7 @@ class Request(msgspec.Struct, frozen = True):
     data: dict = frozendict()    # NOTE `frozendict` is used instead of `dict` to ensure that the request is hashable,
     headers: dict = frozendict() # which is necessary to be able to place it in a set.
     encoding: str = 'utf-8'
+    selenium: bool = False
     
     def __post_init__(self) -> None:
         # Convert the data and headers to `frozendict` objects if they are not already.
@@ -67,6 +68,10 @@ class Response(bytes):
     @cached_property
     def text(self) -> str:
         return self.decode(self.encoding)
+    
+    @property
+    def html(self) -> BeautifulSoup:
+        return BeautifulSoup(self.text, "lxml")
 
     @property
     def stream(self) -> BytesIO:
@@ -87,6 +92,7 @@ class Entry(msgspec.Struct, frozen = True):
     jurisdiction: str | None = None
     date: str | None = None
     title: str | None = None
+    other: dict | None = None
 
     def __post_init__(self) -> None:
         # Format the version id.
@@ -122,6 +128,7 @@ class Document(msgspec.Struct, frozen = True):
     url: str
     when_scraped: str
     text: str
+    other: dict | None = None
 
 class Section(msgspec.Struct, frozen = True):
     "A section from a primary or secondary source."

@@ -1,10 +1,12 @@
 import random
 import asyncio
+import time
 import multiprocessing
 
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from contextlib import nullcontext
+from selenium import webdriver
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
@@ -12,7 +14,7 @@ import aiohttp
 import aiohttp.client_exceptions
 
 from .data import Entry, Request, Document, Section, Response
-from .helpers import log
+from .helpers import log, get_browser
 
 
 class Scraper(ABC):
@@ -48,6 +50,9 @@ class Scraper(ABC):
             retry_statuses (tuple[int], optional): A tuple of statuses to retry on. Defaults to an empty tuple.
             thread_pool_executor (ThreadPoolExecutor, optional): A thread pool executor for OCRing PDFs with `tesseract`. Defaults to a new thread pool executor with the same number of threads as the number of logical CPUs on the system minus one, or one if there is only one logical CPU.
             ocr_semaphore (asyncio.Semaphore, optional): A semaphore for limiting the number of PDFs that may be OCR'd concurrently. Defaults to a semaphore with a limit of 1."""
+        
+        self._browser = None
+        """A selenium browser to use for making requests."""
         
         self.source: str = source
         """The name of the source."""
@@ -202,6 +207,17 @@ class Scraper(ABC):
                     await reader.read(),
                     encoding=req.encoding,
                 )
+            
+        if req.selenium:
+            self.browser.get(req.path)
+            time.sleep(5)
+            page_source = self.browser.page_source
+            return Response(
+                page_source.encode('utf-8'),
+                encoding='utf-8',
+                type='text/html',
+                status=200,
+            )
 
         # Otherwise, attempt to fetch the url and load the binary response, retrying if necessary for up to `self.stop_after_waiting` seconds.
         attempt = 0
@@ -255,6 +271,12 @@ class Scraper(ABC):
                 await asyncio.sleep(wait)
                 
                 elapsed += wait
+    
+    @property
+    def browser(self) -> webdriver.Chrome:
+        if not self._browser:
+            self._browser = get_browser(headless=True)
+        return self._browser
 
 class ParseError(ValueError):
     """Downloaded content is unparseable."""

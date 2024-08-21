@@ -22,7 +22,7 @@ from .helpers import (log, console, warning, load_json, save_json, load_jsonl, s
                       alive_as_completed)
 from .scraper import Scraper
 from .metadata import DATA_VERSIONS
-from .scrapers import (NswCaselaw, NswLegislation, HighCourtOfAustralia, TasmanianLegislation, QueenslandLegislation,
+from .scrapers import (NswCaselaw, NswLegislation, HighCourtOfAustralia, TasmanianLegislation, QueenslandLegislation, QueenslandCaselaw,
                        FederalCourtOfAustralia, SouthAustralianLegislation, FederalRegisterOfLegislation,
                        WesternAustralianLegislation)
 
@@ -34,6 +34,7 @@ SOURCES: dict[str, Scraper] = {
     'nsw_caselaw' : NswCaselaw,
     'nsw_legislation' : NswLegislation,
     'queensland_legislation' : QueenslandLegislation,
+    'queensland_caselaw' : QueenslandCaselaw,
     'south_australian_legislation' : SouthAustralianLegislation,
     'western_australian_legislation' : WesternAustralianLegislation,
     'tasmanian_legislation' : TasmanianLegislation,
@@ -83,7 +84,7 @@ class Creator:
         self.corpus_path: str = os.path.join(cwd, self.corpus_path) # NOTE We join the current working directory to the Corpus path to ensure the path is relative to the current working directory, not the location of this module.
         """The path to the Corpus."""
         
-        self.data_dir = data_dir or user_data_dir('Open Australian Legal Corpus', 'Umar Butler')
+        self.data_dir = data_dir or './'
         self.data_dir: str = os.path.join(cwd, self.data_dir)
         """The path to the directory in which Corpus data is stored."""
         

@@ -2,6 +2,7 @@ from .nsw_caselaw import NswCaselaw
 from .nsw_legislation import NswLegislation
 from .tasmanian_legislation import TasmanianLegislation
 from .queensland_legislation import QueenslandLegislation
+from .queensland_caselaw import QueenslandCaselaw
 from .high_court_of_australia import HighCourtOfAustralia
 from .federal_court_of_australia import FederalCourtOfAustralia
 from .south_australian_legislation import SouthAustralianLegislation

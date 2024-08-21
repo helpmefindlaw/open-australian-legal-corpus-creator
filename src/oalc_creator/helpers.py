@@ -6,6 +6,8 @@ from typing import Any, Callable, Iterable, Generator
 from datetime import datetime
 from textwrap import dedent
 from contextlib import suppress
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
 
 import orjson
 import msgspec
@@ -168,3 +170,12 @@ def batch_generator(iterable: Iterable, batch_size: int) -> Generator[list, None
     
     for first in iterator:
         yield list(itertools.chain([first], itertools.islice(iterator, batch_size - 1)))
+
+def get_browser(headless: bool = True):
+    options = webdriver.ChromeOptions()
+    if headless:
+        options.add_argument("headless")
+    options.add_argument("User-Agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36")
+    options.add_argument("Accept-Language=en-US,en;q=0.9")
+    ChromeDriverManager().install()
+    return webdriver.Chrome(options=options, keep_alive=True)

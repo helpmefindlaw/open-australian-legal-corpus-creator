@@ -1,6 +1,22 @@
 ## Changelog 🔄
 All notable changes to the Open Australian Legal Corpus Creator will be documented here. This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.4] - 2024-08-08
+### Fixed
+- Fixed the fact that, when the Creator was run, it would unnecessarily rewrite the entire Corpus in order to detect and remove duplicates, outdated documents and otherwise repair it (which caused excessive writes and overwore disks) by instead first reading the Corpus and then only overwriting it if found necessary as, although this can sometimes double read time, reading is much cheaper on SSDs (which most modern drives are) than writing ([#2](https://github.com/umarbutler/open-australian-legal-corpus-creator/issues/2)).
+
+## [3.0.3] - 2024-08-05
+### Fixed
+- Fixed a bug preventing the scraping of documents from the NSW Legislation database that are stored as PDFs but are reported by the database's web server as being HTML files.
+
+## [3.0.2] - 2024-08-04
+### Fixed
+- Fixed a bug that caused only the first volume of multivolume documents on the Federal Register of Legislation available in a HTML format to be scraped instead of all volumes.
+
+## [3.0.1] - 2024-07-26
+### Fixed
+- Fixed a bug that caused the earliest versions of documents from the Federal Register of Legislation not available in a HTML format to be scraped instead of their latest versions.
+
 ## [3.0.0] - 2024-06-01
 ### Added
 - Added the `date` field.
@@ -99,6 +115,10 @@ All notable changes to the Open Australian Legal Corpus Creator will be document
 - Reduced excessive line breaks in texts.
 - Improved the extraction and cleaning of citations.
 
+[3.0.4]: https://github.com/umarbutler/open-australian-legal-corpus-creator/compare/v3.0.3...v3.0.4
+[3.0.3]: https://github.com/umarbutler/open-australian-legal-corpus-creator/compare/v3.0.2...v3.0.3
+[3.0.2]: https://github.com/umarbutler/open-australian-legal-corpus-creator/compare/v3.0.1...v3.0.2
+[3.0.1]: https://github.com/umarbutler/open-australian-legal-corpus-creator/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/umarbutler/open-australian-legal-corpus-creator/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/umarbutler/open-australian-legal-corpus-creator/compare/v1.0.1...v2.0.0
 [1.0.1]: https://github.com/umarbutler/open-australian-legal-corpus-creator/compare/v1.0.0...v1.0.1
